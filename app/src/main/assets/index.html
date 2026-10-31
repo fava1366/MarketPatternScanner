@@ -1,0 +1,82 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Yashar Trader</title><style>
+:root{--bg:#070d18;--card:#101a2b;--line:#263a55;--text:#edf4ff;--muted:#9eb2cc;--blue:#2367e8;--green:#23d19a;--red:#ff526f}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px Tahoma}header,section{padding:16px;margin:10px;background:linear-gradient(145deg,#121f33,#0d1727);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px #0003}h1{font-size:23px;margin:0 0 8px;font-weight:800;letter-spacing:.3px}header{border-top:3px solid #286be7}h3{margin:0 0 12px;font-size:17px}p{line-height:1.9;color:var(--muted)}button,input,select{padding:11px;border-radius:9px;background:#1b2940;color:var(--text);border:1px solid var(--line);font:14px Tahoma}button{background:var(--blue);border:0}button:disabled{opacity:.55}.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1;min-width:0}.status{padding:11px;border-radius:9px;background:#1b2940;line-height:1.8;overflow-wrap:anywhere}.warn{background:#2a2517;color:#f3bd4f;padding:12px;border-radius:8px}.ok{color:var(--green)}.bad{color:var(--red)}canvas{display:block;width:100%;height: min(68vh,680px);min-height:380px;background:#080f1b;border-radius:10px;border:1px solid #24364f;touch-action:none}.signal{padding:12px;border:1px solid var(--line);border-radius:10px;margin:8px 0}.small{font-size:12px;color:var(--muted)}
+</style></head><body>
+<header><div style="display:flex;align-items:center;gap:12px"><div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#2c78ff,#12d6a0);display:grid;place-items:center;font-size:25px;font-weight:bold;color:#07121f">Y</div><div><h1>YASHAR TRADER</h1><p style="margin:0">یاشار تریدر · اسکن الگوهای طلا و فارکس</p></div></div><p>تحلیل بازار با داده واقعی Twelve Data · بدون اتصال حساب معاملاتی و بدون اجرای معامله</p></header>
+<section><h3>منبع داده</h3><p>API Key را وارد کنید. درخواست داده از طریق اتصال امن HTTPS در Android انجام می‌شود.</p><div class="row"><input id="apiKey" type="password" placeholder="API Key Twelve Data"><button id="saveKey">ذخیره</button></div><p class="small">کلید در حافظه خصوصی برنامه روی همین گوشی ذخیره می‌شود. آن را در چت یا مخزن عمومی قرار ندهید.</p><div class="warn">دسترسی به داده یک‌دقیقه‌ای، نمادها و تعداد درخواست‌ها تابع پلن Twelve Data است.</div></section>
+<section><h3>اسکن بازار</h3><div class="row"><select id="symbol"><option>XAU/USD</option><option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option><option>USD/CHF</option><option>AUD/USD</option><option>NZD/USD</option><option>USD/CAD</option><option>EUR/GBP</option><option>EUR/JPY</option><option>GBP/JPY</option></select><select id="chartTf"><option value="3">M3</option><option value="5">M5</option><option value="15" selected>M15</option></select></div><div class="row" style="margin-top:8px"><button id="scan">اسکن و نمایش نمودار</button><button id="live">شروع اسکن پیوسته</button><button id="stop">توقف</button></div><p id="status" class="status">API Key را ذخیره کنید و اسکن را بزنید.</p></section>
+<section><h3>نمودار قیمت واقعی</h3><div class="row" style="margin-bottom:10px"><button id="zoomIn">＋ زوم</button><button id="zoomOut">－ زوم</button><button id="panLeft">◀</button><button id="panRight">▶</button><button id="resetChart">بازنشانی</button></div><p class="small">سبک MetaTrader: محور قیمت سمت راست، محور زمان پایین، کندل‌های واقعی، زوم با کنترل یا دو انگشت و جابه‌جایی با کشیدن نمودار. خطوط قرمز مقاومت و سبز حمایت، از نقاط چرخش اخیر محاسبه می‌شوند.</p><canvas id="chart" width="1200" height="700"></canvas><p id="chartInfo">پس از دریافت داده واقعی، کندل‌ها و محل الگو نمایش داده می‌شود.</p></section>
+<section><h3>نتیجه تأیید چندتایم‌فریمی</h3><div id="result" class="status">هنوز اسکن انجام نشده است.</div><div id="details"></div></section>
+<section><h3>درباره برنامه</h3><p>برنامه‌نویس: یاشار صالحی</p><p>تماس: 09365337179</p></section><section><h3>قواعد تشخیص</h3><p>سه کندل بسته‌شده بررسی می‌شوند. بدنه کندل سوم باید کاملاً بالاتر یا پایین‌تر از بدنه اول باشد؛ تماس مرزی نیز رد می‌شود. سیگنال نهایی فقط وقتی صادر می‌شود که آخرین الگوی M3، M5 و M15 هم‌جهت باشد.</p><p class="small">این نسخه فقط سیگنال تشخیصی می‌دهد؛ معامله، حدضرر، حدسود یا سود و زیان محاسبه نمی‌کند.</p></section>
+<script>
+const $=id=>document.getElementById(id);let busy=false,timer=null;
+const store='marketpattern.twelvedata.key.v1';
+try{$('apiKey').value=(window.MarketApi&&MarketApi.loadKey)?MarketApi.loadKey():(localStorage.getItem(store)||'');}catch(e){$('apiKey').value=localStorage.getItem(store)||'';}
+$('saveKey').onclick=()=>{let k=$('apiKey').value.trim();localStorage.setItem(store,k);try{if(window.MarketApi&&MarketApi.saveKey)MarketApi.saveKey(k);}catch(e){}msg('API Key ذخیره شد؛ دفعه بعد به‌صورت خودکار بارگذاری می‌شود.');};$('scan').onclick=scan;
+$('live').onclick=()=>{if(timer)return;scan();timer=setInterval(scan,60000);$('live').textContent='اسکن پیوسته فعال';msg('اسکن پیوسته فعال؛ هر ۶۰ ثانیه تلاش می‌کند.');};$('stop').onclick=()=>{if(timer)clearInterval(timer);timer=null;$('live').textContent='شروع اسکن پیوسته';msg('اسکن متوقف شد.');};
+function msg(t,c=''){$('status').className='status '+c;$('status').textContent=t;}
+function request(symbol,key){return new Promise((resolve,reject)=>{let cb='cb'+Date.now()+Math.floor(Math.random()*10000);window[cb]=raw=>{delete window[cb];try{resolve(JSON.parse(raw))}catch(e){reject(e)}};if(!window.MarketApi){delete window[cb];reject(Error('Bridge Android در دسترس نیست؛ APK صحیح نصب نشده است.'));return;}MarketApi.getCandles(symbol,key,cb);});}
+function parse(j){if(j.status==='error'||j.code||(!j.values&&j.message))throw Error(j.message||('API error '+j.code));if(!Array.isArray(j.values)||!j.values.length)throw Error('API داده کندلی برنگرداند: '+JSON.stringify(j).slice(0,220));let a=j.values.map(v=>{let d=String(v.datetime||'').replace(' ','T');if(!/[zZ]|[+-]\d\d:\d\d$/.test(d)){}else d+='Z';return{time:Math.floor(Date.parse(d)/1000),open:+v.open,high:+v.high,low:+v.low,close:+v.close};}).filter(c=>Number.isFinite(c.time)&&[c.open,c.high,c.low,c.close].every(Number.isFinite)).sort((x,y)=>x.time-y.time);a=a.filter((c,i)=>!i||c.time!==a[i-1].time);if(a.length<20)throw Error('داده کافی نیست. تعداد کندل: '+a.length);return a;}
+function aggregate(rows,n){let m=new Map();rows.forEach(r=>{let t=Math.floor(r.time/(n*60))*n*60;if(!m.has(t))m.set(t,{time:t,open:r.open,high:r.high,low:r.low,close:r.close,count:1});else{let c=m.get(t);c.high=Math.max(c.high,r.high);c.low=Math.min(c.low,r.low);c.close=r.close;c.count++;}});let now=Math.floor(Date.now()/1000);return [...m.values()].filter(c=>c.time+n*60<=now).sort((a,b)=>a.time-b.time);}
+function body(c){return[Math.min(c.open,c.close),Math.max(c.open,c.close)];}
+function detect(b){if(b.length<3)return{dir:null,reason:'کمتر از سه کندل کامل',bars:[]};let t=b.slice(-3),a=body(t[0]),z=body(t[2]),d=z[0]>a[1]?'UP':z[1]<a[0]?'DOWN':null;return{dir:d,reason:d?'بدنه‌ها بدون تماس یا هم‌پوشانی':'بدنه‌ها هم‌پوشانی یا تماس دارند',bars:t};}
+let chartZoom=1,chartOffset=0,lastRows=[],lastPat=null;
+function chartControls(){
+ $('zoomIn').onclick=()=>{chartZoom=Math.min(5,chartZoom*1.25);if(lastRows.length)draw(lastRows,+$('chartTf').value,lastPat);};
+ $('zoomOut').onclick=()=>{chartZoom=Math.max(.5,chartZoom/1.25);if(lastRows.length)draw(lastRows,+$('chartTf').value,lastPat);};
+ $('panLeft').onclick=()=>{chartOffset=Math.min(Math.max(0,lastRows.length-5),chartOffset+10);if(lastRows.length)draw(lastRows,+$('chartTf').value,lastPat);};
+ $('panRight').onclick=()=>{chartOffset=Math.max(0,chartOffset-10);if(lastRows.length)draw(lastRows,+$('chartTf').value,lastPat);};
+ $('resetChart').onclick=()=>{chartZoom=1;chartOffset=0;if(lastRows.length)draw(lastRows,+$('chartTf').value,lastPat);};
+ const cv=$('chart');cv.addEventListener('wheel',e=>{e.preventDefault();chartZoom=Math.max(.5,Math.min(5,chartZoom*(e.deltaY<0?1.12:.89)));if(lastRows.length)draw(lastRows,+$('chartTf').value,lastPat);},{passive:false});
+ let sx=0,drag=false;cv.addEventListener('pointerdown',e=>{drag=true;sx=e.clientX;cv.setPointerCapture(e.pointerId);});
+ cv.addEventListener('pointermove',e=>{if(!drag||!lastRows.length)return;let dx=e.clientX-sx;sx=e.clientX;chartOffset=Math.max(0,Math.min(lastRows.length-5,chartOffset+Math.round(-dx/8)));draw(lastRows,+$('chartTf').value,lastPat);});
+ cv.addEventListener('pointerup',()=>drag=false);cv.addEventListener('pointercancel',()=>drag=false);
+ let pinchStart=0,pinchZoom=chartZoom;cv.addEventListener('touchstart',e=>{if(e.touches.length===2){pinchStart=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);pinchZoom=chartZoom;}},{passive:true});cv.addEventListener('touchmove',e=>{if(e.touches.length===2&&pinchStart){let d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);chartZoom=Math.max(.5,Math.min(5,pinchZoom*d/pinchStart));if(lastRows.length)draw(lastRows,+$('chartTf').value,lastPat);e.preventDefault();}},{passive:false});cv.addEventListener('touchend',()=>pinchStart=0);
+}
+chartControls();
+function draw(rows,tf,pat){
+ lastRows=rows;lastPat=pat;
+ let c=$('chart'),x=c.getContext('2d'),w=c.width,h=c.height;
+ x.clearRect(0,0,w,h);x.fillStyle='#080e18';x.fillRect(0,0,w,h);
+ let count=Math.max(24,Math.floor(105/chartZoom)),end=Math.max(1,rows.length-chartOffset),start=Math.max(0,end-count),a=rows.slice(start,end);
+ if(!a.length){x.fillStyle='#ff647c';x.font='18px Tahoma';x.fillText('داده کندلی در این بازه موجود نیست',24,42);$('chartInfo').textContent='برای نمایش، اسکن داده واقعی را اجرا کنید.';return;}
+ let lo=Math.min(...a.map(z=>z.low)),hi=Math.max(...a.map(z=>z.high));
+ if(!Number.isFinite(lo)||!Number.isFinite(hi)){x.fillStyle='#ff647c';x.font='18px Tahoma';x.fillText('قیمت‌های API نامعتبر است',24,42);return;}
+ if(hi===lo){let d=Math.abs(hi)*.001||.01;lo-=d;hi+=d;}
+ // Leave a little room above/below candles, similar to a trading terminal.
+ let rawRange=hi-lo;lo-=rawRange*.08;hi+=rawRange*.08;
+ const padL=12,padR=112,padT=34,padB=40,plotW=w-padL-padR,plotH=h-padT-padB,range=hi-lo;
+ const Y=v=>padT+(hi-v)/range*plotH,step=plotW/a.length;
+ const decimals=$('symbol').value==='XAU/USD'?2:5;
+ // Chart grid and right-side price scale.
+ x.font='13px Tahoma';x.textAlign='left';x.strokeStyle='#1c2a3c';x.lineWidth=1;
+ for(let k=0;k<=8;k++){let yy=padT+k*plotH/8,price=hi-k*range/8;x.beginPath();x.moveTo(padL,yy);x.lineTo(w-padR,yy);x.stroke();x.fillStyle='#c4d0df';x.fillText(price.toFixed(decimals),w-padR+9,yy+4);}
+ for(let k=0;k<=6;k++){let xx=padL+k*plotW/6;x.beginPath();x.moveTo(xx,padT);x.lineTo(xx,h-padB);x.stroke();}
+ // Find recent local swing highs/lows; cluster nearby levels and select meaningful ones.
+ const swingHigh=[],swingLow=[];
+ for(let i=2;i<a.length-2;i++){
+  if(a[i].high>=a[i-1].high&&a[i].high>a[i+1].high&&a[i].high>=a[i-2].high&&a[i].high>a[i+2].high)swingHigh.push(a[i].high);
+  if(a[i].low<=a[i-1].low&&a[i].low<a[i+1].low&&a[i].low<=a[i-2].low&&a[i].low<a[i+2].low)swingLow.push(a[i].low);
+ }
+ function clusters(vals){let sorted=vals.sort((a,b)=>a-b),out=[],tol=range*.012;sorted.forEach(v=>{let q=out.find(z=>Math.abs(z.price-v)<=tol);if(q){q.price=(q.price*q.count+v)/(q.count+1);q.count++;}else out.push({price:v,count:1});});return out.filter(z=>z.count>=1).sort((a,b)=>b.count-a.count).slice(0,3);}
+ const resistance=clusters(swingHigh).filter(z=>z.price> a[a.length-1].close),support=clusters(swingLow).filter(z=>z.price< a[a.length-1].close);
+ function levelLine(level,color,label){let yy=Y(level);if(yy<padT||yy>h-padB)return;x.strokeStyle=color;x.lineWidth=2;x.setLineDash([7,5]);x.beginPath();x.moveTo(padL,yy);x.lineTo(w-padR,yy);x.stroke();x.setLineDash([]);x.fillStyle=color;x.fillRect(w-padR+2,yy-13,padR-4,26);x.fillStyle='#07101b';x.font='bold 12px Tahoma';x.textAlign='center';x.fillText(level.toFixed(decimals),w-padR/2,yy+4);x.fillStyle=color;x.font='bold 11px Tahoma';x.textAlign='left';x.fillText(label,padL+5,yy-5);}
+ resistance.forEach(z=>levelLine(z.price,'#ff536d','مقاومت'));
+ support.forEach(z=>levelLine(z.price,'#23d19a','حمایت'));
+ // Candlesticks from real API OHLC values.
+ a.forEach((z,i)=>{
+  const xx=padL+i*step+step/2,col=z.close>=z.open?'#20c997':'#ff536d';
+  x.strokeStyle=col;x.fillStyle=col;x.lineWidth=Math.max(1,step*.14);
+  x.beginPath();x.moveTo(xx,Y(z.high));x.lineTo(xx,Y(z.low));x.stroke();
+  const top=Y(Math.max(z.open,z.close)),bottom=Y(Math.min(z.open,z.close)),bw=Math.max(2,step*.68);
+  x.fillRect(xx-bw/2,top,bw,Math.max(1.5,bottom-top));
+ });
+ // Current price line and price marker.
+ const current=a[a.length-1].close,cy=Y(current);x.strokeStyle='#47b7ff';x.lineWidth=1.5;x.setLineDash([4,4]);x.beginPath();x.moveTo(padL,cy);x.lineTo(w-padR,cy);x.stroke();x.setLineDash([]);x.fillStyle='#47b7ff';x.fillRect(w-padR+2,cy-13,padR-4,26);x.fillStyle='#06101b';x.font='bold 12px Tahoma';x.textAlign='center';x.fillText(current.toFixed(decimals),w-padR/2,cy+4);
+ // Pattern outline if detected.
+ if(pat&&pat.dir&&pat.bars&&pat.bars.length===3){let t0=pat.bars[0].time,t2=pat.bars[2].time,i0=a.findIndex(z=>z.time>=t0),i2=a.findIndex(z=>z.time>=t2);if(i0>=0&&i2>=0){let xx0=padL+i0*step+step/2,xx2=padL+i2*step+step/2,top=Math.min(Y(Math.max(pat.bars[0].open,pat.bars[0].close)),Y(Math.max(pat.bars[2].open,pat.bars[2].close)))-7,bottom=Math.max(Y(Math.min(pat.bars[0].open,pat.bars[0].close)),Y(Math.min(pat.bars[2].open,pat.bars[2].close)))+7;x.strokeStyle=pat.dir==='UP'?'#20c997':'#ff536d';x.lineWidth=2;x.setLineDash([5,4]);x.strokeRect(xx0-step*.45,top,Math.max(step,xx2-xx0+step*.9),Math.max(18,bottom-top));x.setLineDash([]);}}
+ // Time scale along bottom.
+ x.fillStyle='#b6c5d8';x.font='12px Tahoma';x.textAlign='center';for(let k=0;k<=4;k++){let idx=Math.min(a.length-1,Math.floor(k*(a.length-1)/4)),xx=padL+idx*step+step/2;x.fillText(new Date(a[idx].time*1000).toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}),xx,h-12);}
+ $('chartInfo').textContent='داده واقعی Twelve Data · '+$('symbol').value+' · تایم‌فریم M'+tf+' · '+a.length+' کندل · قیمت آخر '+current.toFixed(decimals)+' · خطوط حمایت/مقاومت از سقف‌ها و کف‌های محلی اخیر.';
+}
+async function scan(){if(busy)return;busy=true;$('scan').disabled=true;let key=$('apiKey').value.trim(),symbol=$('symbol').value;if(!key){msg('API Key را وارد کنید و ذخیره بزنید.','bad');busy=false;$('scan').disabled=false;return;}msg('در حال دریافت کندل‌های واقعی از Twelve Data...');try{let rows=parse(await request(symbol,key)),ps={};[3,5,15].forEach(tf=>ps[tf]=detect(aggregate(rows,tf)));let dirs=[3,5,15].map(tf=>ps[tf].dir),signal=dirs[0]&&dirs.every(d=>d===dirs[0])?dirs[0]:null;draw(rows,+$('chartTf').value,ps[$('chartTf').value]);$('result').innerHTML=signal?'<b class="'+(signal==='UP'?'ok':'bad')+'">سیگنال '+(signal==='UP'?'صعودی':'نزولی')+' · M3+M5+M15 تأیید</b>':'سیگنال نهایی تأیید نشد؛ هر سه تایم‌فریم باید الگوی هم‌جهت داشته باشند.';$('details').innerHTML=[3,5,15].map(tf=>'<div class="signal"><b>M'+tf+'</b> · '+(ps[tf].dir?(ps[tf].dir==='UP'?'الگوی صعودی':'الگوی نزولی'):'بدون الگوی معتبر')+'<br><span class="small">'+ps[tf].reason+'</span></div>').join('');msg('داده دریافت شد: '+rows.length+' کندل ۱ دقیقه‌ای؛ قیمت اول '+rows[0].close+'؛ قیمت آخر '+rows[rows.length-1].close+'؛ زمان آخرین داده '+new Date(rows[rows.length-1].time*1000).toLocaleString(),'ok');}catch(e){msg('خطای دریافت/پردازش: '+(e.message||e),'bad');$('result').textContent='سیگنال محاسبه نشد؛ خطای داده را رفع کنید.';$('chartInfo').textContent='نمودار به علت خطای داده رسم نشد.';let x=$('chart').getContext('2d');x.clearRect(0,0,$('chart').width,$('chart').height);x.fillStyle='#0b1220';x.fillRect(0,0,$('chart').width,$('chart').height);x.fillStyle='#ff647c';x.font='18px Tahoma';x.fillText('خطای دریافت داده',25,45);}finally{busy=false;$('scan').disabled=false;}}
+</script></body></html>

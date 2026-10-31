@@ -1,0 +1,61 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+:root{--bg:#0b1220;--card:#131e30;--line:#293951;--text:#edf3fb;--muted:#a9bbd1;--blue:#2466bd;--green:#24c78a;--red:#ff647c}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px Tahoma}header,section{padding:16px;margin:12px;background:var(--card);border:1px solid var(--line);border-radius:14px}h1{font-size:20px;margin:0 0 8px}h3{margin:0 0 12px;font-size:17px}p{line-height:1.9;color:var(--muted)}button,input,select{padding:11px;border-radius:9px;background:#1b2940;color:var(--text);border:1px solid var(--line);font:14px Tahoma}button{background:var(--blue);border:0}button:disabled{opacity:.55}.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1;min-width:0}.status{padding:11px;border-radius:9px;background:#1b2940;line-height:1.8;overflow-wrap:anywhere}.warn{background:#2a2517;color:#f3bd4f;padding:12px;border-radius:8px}.ok{color:var(--green)}.bad{color:var(--red)}canvas{display:block;width:100%;height:auto;background:#0b1220;border-radius:10px}.signal{padding:12px;border:1px solid var(--line);border-radius:10px;margin:8px 0}.small{font-size:12px;color:var(--muted)}
+</style></head><body>
+<header><h1>ماسح الگوی بازار</h1><p>اسکن طلا و فارکس با داده Twelve Data · بدون اتصال به حساب MT5 و بدون معامله</p></header>
+<section><h3>منبع داده</h3><p>API Key را وارد کنید. درخواست داده از طریق اتصال امن HTTPS در Android انجام می‌شود.</p><div class="row"><input id="apiKey" type="password" placeholder="API Key Twelve Data"><button id="saveKey">ذخیره</button></div><p class="small">کلید فقط روی همین گوشی ذخیره می‌شود؛ آن را در چت ارسال نکنید.</p><div class="warn">دسترسی به داده یک‌دقیقه‌ای، نمادها و تعداد درخواست‌ها تابع پلن Twelve Data است.</div></section>
+<section><h3>اسکن بازار</h3><div class="row"><select id="symbol"><option>XAU/USD</option><option>EUR/USD</option><option>GBP/USD</option><option>USD/JPY</option><option>USD/CHF</option><option>AUD/USD</option><option>NZD/USD</option><option>USD/CAD</option><option>EUR/GBP</option><option>EUR/JPY</option><option>GBP/JPY</option></select><select id="chartTf"><option value="3">M3</option><option value="5">M5</option><option value="15" selected>M15</option></select></div><div class="row" style="margin-top:8px"><button id="scan">اسکن و نمایش نمودار</button><button id="live">شروع اسکن پیوسته</button><button id="stop">توقف</button></div><p id="status" class="status">API Key را ذخیره کنید و اسکن را بزنید.</p></section>
+<section><h3>نمودار کندلی و محل الگو</h3><canvas id="chart" width="900" height="440"></canvas><p id="chartInfo">پس از دریافت داده واقعی، کندل‌ها و محل الگو نمایش داده می‌شود.</p></section>
+<section><h3>نتیجه تأیید چندتایم‌فریمی</h3><div id="result" class="status">هنوز اسکن انجام نشده است.</div><div id="details"></div></section>
+<section><h3>قواعد تشخیص</h3><p>سه کندل بسته‌شده بررسی می‌شوند. بدنه کندل سوم باید کاملاً بالاتر یا پایین‌تر از بدنه اول باشد؛ تماس مرزی نیز رد می‌شود. سیگنال نهایی فقط وقتی صادر می‌شود که آخرین الگوی M3، M5 و M15 هم‌جهت باشد.</p><p class="small">این نسخه فقط سیگنال تشخیصی می‌دهد؛ معامله، حدضرر، حدسود یا سود و زیان محاسبه نمی‌کند.</p></section>
+<script>
+const $=id=>document.getElementById(id);let busy=false,timer=null;
+const store='marketpattern.twelvedata.key.v1';$('apiKey').value=localStorage.getItem(store)||'';
+$('saveKey').onclick=()=>{localStorage.setItem(store,$('apiKey').value.trim());msg('API Key روی گوشی ذخیره شد.');};$('scan').onclick=scan;
+$('live').onclick=()=>{if(timer)return;scan();timer=setInterval(scan,60000);$('live').textContent='اسکن پیوسته فعال';msg('اسکن پیوسته فعال؛ هر ۶۰ ثانیه تلاش می‌کند.');};$('stop').onclick=()=>{if(timer)clearInterval(timer);timer=null;$('live').textContent='شروع اسکن پیوسته';msg('اسکن متوقف شد.');};
+function msg(t,c=''){$('status').className='status '+c;$('status').textContent=t;}
+function request(symbol,key){return new Promise((resolve,reject)=>{let cb='cb'+Date.now()+Math.floor(Math.random()*10000);window[cb]=raw=>{delete window[cb];try{resolve(JSON.parse(raw))}catch(e){reject(e)}};if(!window.MarketApi){delete window[cb];reject(Error('Bridge Android در دسترس نیست؛ APK صحیح نصب نشده است.'));return;}MarketApi.getCandles(symbol,key,cb);});}
+function parse(j){if(j.status==='error'||j.code||(!j.values&&j.message))throw Error(j.message||('API error '+j.code));if(!Array.isArray(j.values)||!j.values.length)throw Error('API داده کندلی برنگرداند: '+JSON.stringify(j).slice(0,220));let a=j.values.map(v=>{let d=String(v.datetime||'').replace(' ','T');if(!/[zZ]|[+-]\d\d:\d\d$/.test(d)){}else d+='Z';return{time:Math.floor(Date.parse(d)/1000),open:+v.open,high:+v.high,low:+v.low,close:+v.close};}).filter(c=>Number.isFinite(c.time)&&[c.open,c.high,c.low,c.close].every(Number.isFinite)).sort((x,y)=>x.time-y.time);a=a.filter((c,i)=>!i||c.time!==a[i-1].time);if(a.length<20)throw Error('داده کافی نیست. تعداد کندل: '+a.length);return a;}
+function aggregate(rows,n){let m=new Map();rows.forEach(r=>{let t=Math.floor(r.time/(n*60))*n*60;if(!m.has(t))m.set(t,{time:t,open:r.open,high:r.high,low:r.low,close:r.close,count:1});else{let c=m.get(t);c.high=Math.max(c.high,r.high);c.low=Math.min(c.low,r.low);c.close=r.close;c.count++;}});let now=Math.floor(Date.now()/1000);return [...m.values()].filter(c=>c.time+n*60<=now).sort((a,b)=>a.time-b.time);}
+function body(c){return[Math.min(c.open,c.close),Math.max(c.open,c.close)];}
+function detect(b){if(b.length<3)return{dir:null,reason:'کمتر از سه کندل کامل',bars:[]};let t=b.slice(-3),a=body(t[0]),z=body(t[2]),d=z[0]>a[1]?'UP':z[1]<a[0]?'DOWN':null;return{dir:d,reason:d?'بدنه‌ها بدون تماس یا هم‌پوشانی':'بدنه‌ها هم‌پوشانی یا تماس دارند',bars:t};}
+function draw(rows,tf,pat){
+ let c=$('chart'),x=c.getContext('2d'),w=c.width,h=c.height;
+ x.clearRect(0,0,w,h);x.fillStyle='#0b1220';x.fillRect(0,0,w,h);
+ // Always plot raw received OHLC first. This must not depend on aggregation or pattern availability.
+ let a=rows.slice(-100);
+ if(!a.length){x.fillStyle='#ff647c';x.font='18px Tahoma';x.fillText('API هیچ کندلی برنگرداند',24,42);$('chartInfo').textContent='هیچ داده OHLC برای رسم وجود ندارد.';return;}
+ let lo=Math.min(...a.map(z=>z.low)),hi=Math.max(...a.map(z=>z.high));
+ if(!Number.isFinite(lo)||!Number.isFinite(hi)){x.fillStyle='#ff647c';x.font='18px Tahoma';x.fillText('قیمت‌های API نامعتبر است',24,42);$('chartInfo').textContent='مقادیر OHLC معتبر نیستند.';return;}
+ if(hi===lo){let d=Math.abs(hi)*.001||.01;lo-=d;hi+=d;}
+ const padL=64,padR=14,padT=35,padB=34,range=hi-lo;
+ const Y=v=>padT+(hi-v)/range*(h-padT-padB),step=(w-padL-padR)/a.length;
+ x.strokeStyle='#26364d';x.fillStyle='#a9bbd1';x.font='12px Tahoma';x.textAlign='left';
+ for(let k=0;k<=4;k++){let yy=padT+k*(h-padT-padB)/4;x.beginPath();x.moveTo(padL,yy);x.lineTo(w-padR,yy);x.stroke();x.fillText((hi-k*range/4).toFixed($('symbol').value==='XAU/USD'?2:5),3,yy+4);}
+ a.forEach((z,i)=>{
+  const xx=padL+i*step+step/2,col=z.close>=z.open?'#24c78a':'#ff647c';
+  x.strokeStyle=col;x.fillStyle=col;x.lineWidth=1.5;
+  x.beginPath();x.moveTo(xx,Y(z.high));x.lineTo(xx,Y(z.low));x.stroke();
+  const top=Y(Math.max(z.open,z.close)),bottom=Y(Math.min(z.open,z.close)),bw=Math.max(2,step*.72);
+  x.fillRect(xx-bw/2,top,bw,Math.max(2,bottom-top));
+ });
+ // If a detected 3-bar pattern exists, mark its first and third raw minute positions.
+ if(pat&&pat.dir&&pat.bars&&pat.bars.length===3){
+  let t0=pat.bars[0].time,t2=pat.bars[2].time;
+  let i0=a.findIndex(z=>z.time>=t0),i2=a.findIndex(z=>z.time>=t2);
+  if(i0>=0&&i2>=0){
+   let xx0=padL+i0*step+step/2,xx2=padL+i2*step+step/2;
+   let top=Math.min(Y(Math.max(pat.bars[0].open,pat.bars[0].close)),Y(Math.max(pat.bars[2].open,pat.bars[2].close)))-8;
+   let bottom=Math.max(Y(Math.min(pat.bars[0].open,pat.bars[0].close)),Y(Math.min(pat.bars[2].open,pat.bars[2].close)))+8;
+   x.strokeStyle=pat.dir==='UP'?'#24c78a':'#ff647c';x.lineWidth=2;x.setLineDash([5,4]);
+   x.strokeRect(xx0-step*.45,top,Math.max(step,xx2-xx0+step*.9),Math.max(18,bottom-top));x.setLineDash([]);
+   x.fillStyle=x.strokeStyle;x.font='bold 16px Tahoma';x.textAlign='center';
+   x.fillText(pat.dir==='UP'?'▲ الگوی صعودی':'▼ الگوی نزولی',(xx0+xx2)/2,22);
+  }
+ }
+ x.fillStyle='#a9bbd1';x.font='11px Tahoma';x.textAlign='left';
+ x.fillText(new Date(a[0].time*1000).toLocaleTimeString(),padL,h-9);
+ x.textAlign='right';x.fillText(new Date(a[a.length-1].time*1000).toLocaleTimeString(),w-padR,h-9);
+ $('chartInfo').textContent='نمودار خام داده واقعی · '+$('symbol').value+' · '+a.length+' کندل 1 دقیقه‌ای · آخرین قیمت '+a[a.length-1].close+' · الگو/سیگنال جداگانه از M3، M5، M15 محاسبه می‌شود.';
+}
+async function scan(){if(busy)return;busy=true;$('scan').disabled=true;let key=$('apiKey').value.trim(),symbol=$('symbol').value;if(!key){msg('API Key را وارد کنید و ذخیره بزنید.','bad');busy=false;$('scan').disabled=false;return;}msg('در حال دریافت کندل‌های واقعی از Twelve Data...');try{let rows=parse(await request(symbol,key)),ps={};[3,5,15].forEach(tf=>ps[tf]=detect(aggregate(rows,tf)));let dirs=[3,5,15].map(tf=>ps[tf].dir),signal=dirs[0]&&dirs.every(d=>d===dirs[0])?dirs[0]:null;draw(rows,+$('chartTf').value,ps[$('chartTf').value]);$('result').innerHTML=signal?'<b class="'+(signal==='UP'?'ok':'bad')+'">سیگنال '+(signal==='UP'?'صعودی':'نزولی')+' · M3+M5+M15 تأیید</b>':'سیگنال نهایی تأیید نشد؛ هر سه تایم‌فریم باید الگوی هم‌جهت داشته باشند.';$('details').innerHTML=[3,5,15].map(tf=>'<div class="signal"><b>M'+tf+'</b> · '+(ps[tf].dir?(ps[tf].dir==='UP'?'الگوی صعودی':'الگوی نزولی'):'بدون الگوی معتبر')+'<br><span class="small">'+ps[tf].reason+'</span></div>').join('');msg('داده دریافت شد: '+rows.length+' کندل ۱ دقیقه‌ای؛ قیمت اول '+rows[0].close+'؛ قیمت آخر '+rows[rows.length-1].close+'؛ زمان آخرین داده '+new Date(rows[rows.length-1].time*1000).toLocaleString(),'ok');}catch(e){msg('خطای دریافت/پردازش: '+(e.message||e),'bad');$('result').textContent='سیگنال محاسبه نشد؛ خطای داده را رفع کنید.';$('chartInfo').textContent='نمودار به علت خطای داده رسم نشد.';let x=$('chart').getContext('2d');x.clearRect(0,0,900,440);x.fillStyle='#0b1220';x.fillRect(0,0,900,440);x.fillStyle='#ff647c';x.font='18px Tahoma';x.fillText('خطای دریافت داده',25,45);}finally{busy=false;$('scan').disabled=false;}}
+</script></body></html>

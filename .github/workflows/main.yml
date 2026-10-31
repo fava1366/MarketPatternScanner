@@ -27,11 +27,29 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Extract project ZIP
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Project ZIP not found"
+            exit 1
+          fi
+          mkdir -p source
+          unzip -q "$ZIP_FILE" -d source
+          PROJECT_DIR=$(dirname "$(find source -name settings.gradle -print -quit)")
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "settings.gradle not found"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+
       - name: Build APK
-        run: gradle assembleDebug
+        run: |
+          cd "$PROJECT_DIR"
+          gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MarketPatternScanner-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: source/**/app-debug.apk

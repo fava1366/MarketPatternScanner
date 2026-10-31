@@ -1,0 +1,6 @@
+plugins { id 'com.android.application' }
+android {
+ namespace 'com.fava.marketpattern'
+ compileSdk 35
+ defaultConfig { applicationId 'com.fava.marketpattern'; minSdk 23; targetSdk 28; versionCode 5; versionName '1.2' }
+}
